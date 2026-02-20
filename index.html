@@ -514,9 +514,22 @@
     return solanaWeb3.VersionedTransaction.deserialize(new Uint8Array(txData));
   }
 
+  // ── RPC endpoint (public, CORS-friendly) ──
+  const RPC_ENDPOINTS = [
+    'https://solana-rpc.publicnode.com',
+    'https://api.mainnet-beta.solana.com',
+  ];
+
+  function getConnection() {
+    return new solanaWeb3.Connection(RPC_ENDPOINTS[0], {
+      commitment: 'confirmed',
+      confirmTransactionInitialTimeout: 60000,
+    });
+  }
+
   // ── Sign and send ──
   async function signAndSend(tx, mintKeypair) {
-    const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+    const connection = getConnection();
 
     tx.sign([mintKeypair]);
     const signedTx = await state.provider.signTransaction(tx);
@@ -551,7 +564,7 @@
 
     try {
       // Check balance
-      const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+      const connection = getConnection();
       const balance = await connection.getBalance(state.publicKey);
       if (balance < 0.02 * solanaWeb3.LAMPORTS_PER_SOL) {
         throw new Error('Insufficient SOL. You need at least 0.02 SOL. Current: ' + (balance / solanaWeb3.LAMPORTS_PER_SOL).toFixed(4));

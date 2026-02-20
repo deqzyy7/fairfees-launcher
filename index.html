@@ -4,301 +4,573 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FairFees — Launch Your Token</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@solana/web3.js@1.95.5/lib/index.iife.min.js"></script>
 <style>
   :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-tertiary: #21262d;
-    --border: #30363d;
-    --text-primary: #e6edf3;
-    --text-secondary: #8b949e;
-    --text-muted: #484f58;
-    --green: #3fb950;
-    --green-bg: rgba(63,185,80,0.12);
-    --red: #f85149;
-    --yellow: #d29922;
-    --blue: #58a6ff;
-    --purple: #bc8cff;
+    --bg: #060608;
+    --bg-card: #0c0c10;
+    --bg-input: #111116;
+    --border: #1a1a22;
+    --border-focus: #00e676;
+    --text: #e8e8ec;
+    --text-secondary: #7a7a88;
+    --text-muted: #44444f;
+    --green: #00e676;
+    --green-dim: rgba(0,230,118,0.12);
+    --green-glow: rgba(0,230,118,0.25);
+    --red: #ff4757;
+    --font: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace;
-    --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--bg-primary); color:var(--text-primary); font-family:var(--sans); font-size:14px; min-height:100vh; }
-  a { color:var(--blue); text-decoration:none; }
-  a:hover { text-decoration:underline; }
 
-  /* Header */
-  .header {
-    position:fixed; top:0; left:0; right:0; height:56px; z-index:50;
-    background:var(--bg-secondary); border-bottom:1px solid var(--border);
-    display:flex; align-items:center; justify-content:space-between; padding:0 24px;
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    position: relative;
   }
-  .logo {
-    font-size:20px; font-weight:700;
-    background:linear-gradient(135deg, var(--blue), var(--purple));
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+
+  /* Subtle radial glow behind card */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,230,118,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  a { color: var(--green); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Container ── */
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 480px;
+    padding: 20px;
+    margin: 40px auto;
+  }
+
+  /* ── Branding ── */
+  .brand {
+    text-align: center;
+    margin-bottom: 32px;
+    opacity: 0;
+    animation: fadeSlideDown 0.6s ease forwards;
+  }
+  .brand h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .brand h1 span {
+    background: linear-gradient(135deg, var(--green), #69f0ae);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .brand p {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  /* ── Wallet button ── */
+  .wallet-bar {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeSlideDown 0.6s ease 0.1s forwards;
   }
   .wallet-btn {
-    background:var(--green-bg); color:var(--green); border:1px solid rgba(63,185,80,0.3);
-    border-radius:8px; padding:8px 16px; cursor:pointer; font-size:13px; font-weight:600;
-    font-family:var(--sans); transition:all 0.15s;
+    background: var(--green-dim);
+    color: var(--green);
+    border: 1px solid rgba(0,230,118,0.2);
+    border-radius: 10px;
+    padding: 10px 24px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font);
+    transition: all 0.2s ease;
+    letter-spacing: 0.3px;
   }
-  .wallet-btn:hover { background:rgba(63,185,80,0.2); }
-  .wallet-btn.connected { background:var(--bg-tertiary); color:var(--text-primary); border-color:var(--border); }
-  .wallet-addr { font-family:var(--mono); font-size:12px; }
-
-  /* Main */
-  .main { margin-top:56px; padding:40px 20px 60px; max-width:680px; margin-left:auto; margin-right:auto; }
-
-  /* Hero */
-  .hero { text-align:center; margin-bottom:48px; }
-  .hero h1 { font-size:36px; font-weight:800; margin-bottom:12px; line-height:1.2; }
-  .hero p { color:var(--text-secondary); font-size:16px; line-height:1.6; max-width:520px; margin:0 auto 24px; }
-  .badges { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-  .badge {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;
-    background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary);
+  .wallet-btn:hover {
+    background: rgba(0,230,118,0.18);
+    border-color: rgba(0,230,118,0.4);
+    box-shadow: 0 0 20px rgba(0,230,118,0.1);
   }
-  .badge-dot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+  .wallet-btn.connected {
+    background: var(--bg-input);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .wallet-addr { font-family: var(--mono); font-size: 12px; }
 
-  /* Card */
+  /* ── Steps wrapper ── */
+  .step-view {
+    position: relative;
+  }
+
+  /* ── Sections (form / progress / success) ── */
+  .section {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    display: none;
+  }
+  .section.active {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .section.exit {
+    opacity: 0;
+    transform: translateY(-12px);
+    pointer-events: none;
+  }
+
+  /* ── Card ── */
   .card {
-    background:var(--bg-secondary); border:1px solid var(--border);
-    border-radius:12px; padding:28px; margin-bottom:24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
   }
-  .card h2 { font-size:18px; font-weight:700; margin-bottom:20px; }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,230,118,0.15), transparent);
+  }
 
-  /* Form */
-  .form-group { margin-bottom:18px; }
-  .form-group label { display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:6px; }
-  .form-group .hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
-  .form-input {
-    width:100%; background:var(--bg-primary); border:1px solid var(--border); border-radius:8px;
-    color:var(--text-primary); padding:10px 14px; font-size:14px; font-family:var(--sans); outline:none;
-    transition:border-color 0.15s;
+  /* ── Form ── */
+  .form-group {
+    margin-bottom: 18px;
+    opacity: 0;
+    animation: fadeSlideUp 0.4s ease forwards;
   }
-  .form-input:focus { border-color:var(--blue); }
-  .form-input::placeholder { color:var(--text-muted); }
-  textarea.form-input { resize:vertical; min-height:80px; }
+  .form-group:nth-child(1) { animation-delay: 0.15s; }
+  .form-group:nth-child(2) { animation-delay: 0.2s; }
+  .form-group:nth-child(3) { animation-delay: 0.25s; }
+  .form-group:nth-child(4) { animation-delay: 0.3s; }
+  .form-group:nth-child(5) { animation-delay: 0.35s; }
+  .form-group:nth-child(6) { animation-delay: 0.4s; }
+  .form-group:nth-child(7) { animation-delay: 0.45s; }
+
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .form-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 11px 14px;
+    font-size: 14px;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px var(--green-dim);
+  }
+  .form-input::placeholder { color: var(--text-muted); }
+  textarea.form-input { resize: vertical; min-height: 72px; }
 
   /* Image upload */
   .image-upload {
-    border:2px dashed var(--border); border-radius:8px; padding:24px;
-    text-align:center; cursor:pointer; transition:border-color 0.15s;
-    position:relative; overflow:hidden;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
   }
-  .image-upload:hover, .image-upload.dragover { border-color:var(--blue); }
-  .image-upload input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; }
-  .image-upload-text { color:var(--text-muted); font-size:13px; }
-  .image-upload-text strong { color:var(--text-secondary); }
+  .image-upload:hover, .image-upload.dragover {
+    border-color: var(--green);
+    background: rgba(0,230,118,0.03);
+  }
+  .image-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .image-upload-text { color: var(--text-muted); font-size: 13px; }
+  .image-upload-text strong { color: var(--text-secondary); }
   .image-preview {
-    width:80px; height:80px; border-radius:8px; object-fit:cover;
-    margin:0 auto 8px; display:none;
+    width: 64px; height: 64px; border-radius: 10px; object-fit: cover;
+    margin: 0 auto 8px; display: none;
+    border: 2px solid var(--border);
   }
 
   /* Socials row */
-  .socials-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
-  @media (max-width:600px) { .socials-row { grid-template-columns:1fr; } }
+  .socials-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .socials-row { grid-template-columns: 1fr; } }
 
   /* Launch button */
   .launch-btn {
-    width:100%; padding:14px; border:none; border-radius:10px; cursor:pointer;
-    font-size:16px; font-weight:700; font-family:var(--sans);
-    background:var(--green); color:#fff; transition:opacity 0.15s;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: var(--font);
+    background: var(--green);
+    color: #000;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    margin-top: 4px;
+    position: relative;
+    overflow: hidden;
   }
-  .launch-btn:hover:not(:disabled) { opacity:0.9; }
-  .launch-btn:disabled { opacity:0.4; cursor:not-allowed; }
-
-  /* Progress */
-  .progress { margin-top:24px; }
-  .progress.hidden { display:none; }
-  .step {
-    display:flex; align-items:center; gap:10px; padding:10px 0;
-    font-size:13px; color:var(--text-muted);
+  .launch-btn:hover:not(:disabled) {
+    box-shadow: 0 0 30px rgba(0,230,118,0.25);
+    transform: translateY(-1px);
   }
-  .step.active { color:var(--text-primary); }
-  .step.done { color:var(--green); }
-  .step.error { color:var(--red); }
-  .step-icon {
-    width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-size:12px; flex-shrink:0;
-    background:var(--bg-tertiary); border:1px solid var(--border); color:var(--text-muted);
+  .launch-btn:active:not(:disabled) { transform: translateY(0); }
+  .launch-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
   }
-  .step.active .step-icon { border-color:var(--blue); color:var(--blue); }
-  .step.done .step-icon { background:var(--green-bg); border-color:var(--green); color:var(--green); }
-  .step.error .step-icon { background:rgba(248,81,73,0.12); border-color:var(--red); color:var(--red); }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .spinner { animation:spin 1s linear infinite; display:inline-block; }
-
-  /* Success */
-  .success-card { text-align:center; }
-  .success-card .checkmark { font-size:48px; margin-bottom:12px; }
-  .success-card h2 { color:var(--green); margin-bottom:16px; }
-  .mint-addr {
-    font-family:var(--mono); font-size:13px; background:var(--bg-primary);
-    border:1px solid var(--border); border-radius:8px; padding:12px 16px;
-    word-break:break-all; margin:12px 0; cursor:pointer; transition:border-color 0.15s;
-  }
-  .mint-addr:hover { border-color:var(--blue); }
-  .success-links { display:flex; gap:12px; justify-content:center; margin:16px 0; flex-wrap:wrap; }
-  .success-links a {
-    padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600;
-    background:var(--bg-tertiary); border:1px solid var(--border); color:var(--text-primary);
-  }
-  .success-links a:hover { border-color:var(--blue); text-decoration:none; }
-  .fairfees-badge {
-    display:inline-flex; align-items:center; gap:6px; margin-top:16px;
-    padding:8px 16px; border-radius:20px; font-size:12px; font-weight:600;
-    background:var(--green-bg); border:1px solid rgba(63,185,80,0.3); color:var(--green);
-  }
-  .btn-secondary {
-    background:var(--bg-tertiary); color:var(--text-primary); border:1px solid var(--border);
-    border-radius:8px; padding:10px 20px; cursor:pointer; font-size:14px; font-weight:600;
-    font-family:var(--sans); margin-top:20px;
-  }
-  .btn-secondary:hover { background:var(--border); }
 
   /* Error */
   .error-msg {
-    background:rgba(248,81,73,0.1); border:1px solid rgba(248,81,73,0.3);
-    border-radius:8px; padding:12px 16px; color:var(--red); font-size:13px;
-    margin-top:12px; display:none;
+    background: rgba(255,71,87,0.08);
+    border: 1px solid rgba(255,71,87,0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--red);
+    font-size: 13px;
+    margin-top: 14px;
+    display: none;
   }
 
-  /* No Phantom */
-  .no-phantom {
-    text-align:center; padding:40px 20px; color:var(--text-secondary);
-  }
-  .no-phantom a {
-    display:inline-block; margin-top:12px; padding:10px 24px;
-    background:rgba(88,166,255,0.15); color:var(--blue); border:1px solid rgba(88,166,255,0.3);
-    border-radius:8px; font-weight:600;
+  /* ── Progress section ── */
+  .progress-section { padding: 12px 0; }
+  .progress-section h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    text-align: center;
+    color: var(--text);
   }
 
-  /* Footer */
-  .footer {
-    text-align:center; padding:32px 20px; color:var(--text-muted); font-size:12px;
-    line-height:1.6; border-top:1px solid var(--border); max-width:680px; margin:40px auto 0;
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: color 0.3s, opacity 0.3s;
   }
-  .footer strong { color:var(--text-secondary); }
+  .step:last-child { border-bottom: none; }
+  .step.active { color: var(--text); }
+  .step.done { color: var(--green); }
+  .step.error { color: var(--red); }
+
+  .step-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600;
+    flex-shrink: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    transition: all 0.3s;
+  }
+  .step.active .step-icon {
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 12px var(--green-dim);
+  }
+  .step.done .step-icon {
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .step.error .step-icon {
+    background: rgba(255,71,87,0.1);
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { animation: spin 0.8s linear infinite; display: inline-block; }
+
+  /* ── Success section ── */
+  .success-section { text-align: center; padding: 12px 0; }
+
+  .success-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--green-dim);
+    border: 2px solid rgba(0,230,118,0.3);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 28px;
+    color: var(--green);
+    animation: successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    box-shadow: 0 0 40px rgba(0,230,118,0.15);
+  }
+
+  .success-section h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--green);
+    margin-bottom: 6px;
+  }
+  .success-section .subtitle {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .mint-addr {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    word-break: break-all;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    color: var(--text-secondary);
+  }
+  .mint-addr:hover {
+    border-color: var(--green);
+    color: var(--text);
+  }
+
+  .success-links {
+    display: flex; gap: 10px; justify-content: center;
+    margin: 16px 0; flex-wrap: wrap;
+  }
+  .success-links a {
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    transition: all 0.2s;
+  }
+  .success-links a:hover {
+    border-color: var(--green);
+    text-decoration: none;
+    box-shadow: 0 0 12px var(--green-dim);
+  }
+
+  .fairfees-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 16px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    background: var(--green-dim);
+    border: 1px solid rgba(0,230,118,0.2);
+    color: var(--green);
+  }
+  .fairfees-badge .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  .btn-secondary {
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font);
+    margin-top: 20px;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover {
+    border-color: var(--text-muted);
+    background: var(--bg-card);
+  }
+
+  /* ── Powered by ── */
+  .powered {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+    opacity: 0;
+    animation: fadeSlideUp 0.5s ease 0.6s forwards;
+  }
+  .powered span {
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeSlideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes successPop {
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 520px) {
+    .container { padding: 16px; margin: 20px auto; }
+    .card { padding: 22px; border-radius: 14px; }
+    .brand h1 { font-size: 24px; }
+  }
 </style>
 </head>
 <body>
 
-<!-- Header -->
-<div class="header">
-  <span class="logo">FairFees</span>
-  <button class="wallet-btn" id="wallet-btn" onclick="toggleWallet()">Connect Wallet</button>
-</div>
+<div class="container">
 
-<!-- Main -->
-<div class="main">
-
-  <!-- Hero -->
-  <div class="hero">
-    <h1>Launch Your FairFees Token</h1>
-    <p>Create a token on PumpFun where creator fees are redistributed fairly to holders. Compensate losses, reward diamond hands.</p>
-    <div class="badges">
-      <span class="badge"><span class="badge-dot"></span> Fees &rarr; Holders</span>
-      <span class="badge"><span class="badge-dot"></span> Real-Time Tracking</span>
-      <span class="badge"><span class="badge-dot"></span> Transparent Dashboard</span>
-    </div>
+  <!-- Branding -->
+  <div class="brand">
+    <h1>Launch on <span>FairFees</span></h1>
+    <p>Creator fees redistributed to holders. Fair by default.</p>
   </div>
 
-  <!-- Form Card -->
-  <div class="card" id="form-card">
-    <h2>Token Details</h2>
+  <!-- Wallet -->
+  <div class="wallet-bar">
+    <button class="wallet-btn" id="wallet-btn" onclick="toggleWallet()">Connect Wallet</button>
+  </div>
 
-    <div class="form-group">
-      <label>Name *</label>
-      <input type="text" class="form-input" id="token-name" placeholder="e.g. FairDoge" maxlength="32" />
-    </div>
+  <!-- Step views -->
+  <div class="step-view">
 
-    <div class="form-group">
-      <label>Symbol *</label>
-      <input type="text" class="form-input" id="token-symbol" placeholder="e.g. FDOGE" maxlength="10" style="text-transform:uppercase" />
-    </div>
-
-    <div class="form-group">
-      <label>Description *</label>
-      <textarea class="form-input" id="token-description" placeholder="Describe your token and its mission..."></textarea>
-    </div>
-
-    <div class="form-group">
-      <label>Image *</label>
-      <div class="image-upload" id="image-upload">
-        <img class="image-preview" id="image-preview" />
-        <div class="image-upload-text" id="image-upload-text">
-          <strong>Click to upload</strong> or drag and drop<br/>PNG, JPG, GIF (max 5MB)
+    <!-- STEP 1: Form -->
+    <div class="section active" id="section-form">
+      <div class="card">
+        <div class="form-group">
+          <label>Name *</label>
+          <input type="text" class="form-input" id="token-name" placeholder="e.g. FairDoge" maxlength="32" />
         </div>
-        <input type="file" id="token-image" accept="image/png,image/jpeg,image/gif,image/webp" />
+
+        <div class="form-group">
+          <label>Symbol *</label>
+          <input type="text" class="form-input" id="token-symbol" placeholder="e.g. FDOGE" maxlength="10" style="text-transform:uppercase" />
+        </div>
+
+        <div class="form-group">
+          <label>Description *</label>
+          <textarea class="form-input" id="token-description" placeholder="Describe your token and its mission..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Image *</label>
+          <div class="image-upload" id="image-upload">
+            <img class="image-preview" id="image-preview" />
+            <div class="image-upload-text" id="image-upload-text">
+              <strong>Click to upload</strong> or drag & drop<br/>PNG, JPG, GIF — max 5MB
+            </div>
+            <input type="file" id="token-image" accept="image/png,image/jpeg,image/gif,image/webp" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Social Links <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+          <div class="socials-row">
+            <input type="text" class="form-input" id="token-twitter" placeholder="Twitter" />
+            <input type="text" class="form-input" id="token-telegram" placeholder="Telegram" />
+            <input type="text" class="form-input" id="token-website" placeholder="Website" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <button class="launch-btn" id="launch-btn" disabled onclick="launchToken()">Connect Wallet to Launch</button>
+        </div>
+
+        <div class="error-msg" id="error-msg"></div>
       </div>
     </div>
 
-    <div class="form-group">
-      <label>Social Links (optional)</label>
-      <div class="socials-row">
-        <input type="text" class="form-input" id="token-twitter" placeholder="Twitter URL" />
-        <input type="text" class="form-input" id="token-telegram" placeholder="Telegram URL" />
-        <input type="text" class="form-input" id="token-website" placeholder="Website URL" />
+    <!-- STEP 2: Progress -->
+    <div class="section" id="section-progress">
+      <div class="card">
+        <div class="progress-section">
+          <h3>Launching your token...</h3>
+          <div class="step" id="step-1"><span class="step-icon">1</span> Uploading metadata to IPFS</div>
+          <div class="step" id="step-2"><span class="step-icon">2</span> Building transaction</div>
+          <div class="step" id="step-3"><span class="step-icon">3</span> Approve in your wallet</div>
+          <div class="step" id="step-4"><span class="step-icon">4</span> Sending transaction</div>
+          <div class="step" id="step-5"><span class="step-icon">5</span> Confirming on-chain</div>
+        </div>
+        <div class="error-msg" id="error-msg-progress"></div>
       </div>
     </div>
 
-    <button class="launch-btn" id="launch-btn" disabled onclick="launchToken()">Connect Wallet to Launch</button>
-
-    <div class="error-msg" id="error-msg"></div>
-
-    <!-- Progress Steps -->
-    <div class="progress hidden" id="progress">
-      <div class="step" id="step-1"><span class="step-icon">1</span> Uploading metadata to IPFS...</div>
-      <div class="step" id="step-2"><span class="step-icon">2</span> Building transaction...</div>
-      <div class="step" id="step-3"><span class="step-icon">3</span> Please approve in your wallet...</div>
-      <div class="step" id="step-4"><span class="step-icon">4</span> Sending transaction...</div>
-      <div class="step" id="step-5"><span class="step-icon">5</span> Confirming on-chain...</div>
+    <!-- STEP 3: Success -->
+    <div class="section" id="section-success">
+      <div class="card">
+        <div class="success-section">
+          <div class="success-icon">✓</div>
+          <h3>Token Launched!</h3>
+          <p class="subtitle">Your FairFees token is live on PumpFun</p>
+          <div class="mint-addr" id="mint-addr" onclick="copyMint()" title="Click to copy">--</div>
+          <div class="success-links">
+            <a id="link-pump" href="#" target="_blank">PumpFun ↗</a>
+            <a id="link-scan" href="#" target="_blank">Solscan ↗</a>
+          </div>
+          <div class="fairfees-badge"><span class="dot"></span> FairFees Verified — Fees → Holders</div>
+          <br/>
+          <button class="btn-secondary" onclick="resetForm()">Launch Another Token</button>
+        </div>
+      </div>
     </div>
+
   </div>
 
-  <!-- Success Card (hidden) -->
-  <div class="card success-card hidden" id="success-card">
-    <div class="checkmark">&#10003;</div>
-    <h2>Token Launched Successfully!</h2>
-    <p style="color:var(--text-secondary);margin-bottom:12px">Your FairFees token is now live on PumpFun</p>
-    <div class="mint-addr" id="mint-addr" onclick="copyMint()" title="Click to copy">--</div>
-    <div class="success-links">
-      <a id="link-pump" href="#" target="_blank">View on PumpFun</a>
-      <a id="link-scan" href="#" target="_blank">View on Solscan</a>
-    </div>
-    <div class="fairfees-badge"><span class="badge-dot"></span> FairFees Verified &mdash; Creator fees will be redistributed to holders</div>
-    <button class="btn-secondary" onclick="resetForm()">Launch Another Token</button>
-  </div>
+  <!-- Powered by -->
+  <div class="powered">Powered by <span>FairFees</span></div>
 
-  <!-- How it works -->
-  <div class="card" style="margin-top:8px">
-    <h2>How FairFees Works</h2>
-    <div style="display:grid;gap:16px;margin-top:8px">
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <span style="background:var(--green-bg);border:1px solid rgba(63,185,80,0.3);color:var(--green);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px">1</span>
-        <div><strong>Launch</strong><br/><span style="color:var(--text-secondary);font-size:13px">Create your token on PumpFun. It goes live instantly on the bonding curve.</span></div>
-      </div>
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <span style="background:var(--green-bg);border:1px solid rgba(63,185,80,0.3);color:var(--green);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px">2</span>
-        <div><strong>Trade</strong><br/><span style="color:var(--text-secondary);font-size:13px">Traders buy and sell your token. Creator fees accumulate in SOL in your wallet.</span></div>
-      </div>
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <span style="background:var(--green-bg);border:1px solid rgba(63,185,80,0.3);color:var(--green);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px">3</span>
-        <div><strong>Redistribute</strong><br/><span style="color:var(--text-secondary);font-size:13px">FairFees Bot redistributes creator fees to holders in loss and diamond hands automatically.</span></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Footer -->
-<div class="footer">
-  <strong>Powered by FairFees</strong> &mdash; The first PnL-based fee redistribution system for PumpFun tokens.<br/>
-  Holders in loss receive compensation. Diamond hands get rewarded. Fair for everyone.<br/><br/>
-  <span style="font-size:11px">Fee redistribution requires the FairFees Bot to be configured with your token's mint address after launch. The launcher creates standard PumpFun tokens.</span>
 </div>
 
 <script>
@@ -337,15 +609,30 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     txSignature: null,
   };
 
+  // ── Section transitions ──
+  function showSection(id) {
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(s => {
+      if (s.id === id) {
+        s.style.display = 'block';
+        // Force reflow for animation
+        s.offsetHeight;
+        s.classList.add('active');
+        s.classList.remove('exit');
+      } else if (s.classList.contains('active')) {
+        s.classList.add('exit');
+        s.classList.remove('active');
+        setTimeout(() => {
+          s.style.display = 'none';
+          s.classList.remove('exit');
+        }, 400);
+      }
+    });
+  }
+
   // ── Phantom Wallet ──
   function getProvider() {
     console.log('[Wallet] Checking for Phantom...');
-    console.log('[Wallet] window.phantom:', typeof window.phantom, window.phantom ? 'exists' : 'missing');
-    console.log('[Wallet] window.phantom?.solana:', typeof window.phantom?.solana, window.phantom?.solana ? 'exists' : 'missing');
-    console.log('[Wallet] window.phantom?.solana?.isPhantom:', window.phantom?.solana?.isPhantom);
-    console.log('[Wallet] window.solana:', typeof window.solana, window.solana ? 'exists' : 'missing');
-    console.log('[Wallet] window.solana?.isPhantom:', window.solana?.isPhantom);
-
     if (window.phantom?.solana?.isPhantom) {
       console.log('[Wallet] ✅ Found Phantom via window.phantom.solana');
       return window.phantom.solana;
@@ -375,10 +662,6 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
       showError('Phantom wallet not detected. Make sure the extension is installed and enabled for this site.');
       return;
     }
-
-    // Force-disconnect to clear any stale state (fixes some -32603 cases)
-    try { await provider.disconnect(); } catch(e) {}
-    await new Promise(r => setTimeout(r, 300));
 
     try {
       console.log('[Wallet] Calling provider.connect()...');
@@ -459,7 +742,7 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
       reader.readAsDataURL(file);
     } else {
       preview.style.display = 'none';
-      text.innerHTML = '<strong>Click to upload</strong> or drag and drop<br/>PNG, JPG, GIF (max 5MB)';
+      text.innerHTML = '<strong>Click to upload</strong> or drag & drop<br/>PNG, JPG, GIF — max 5MB';
     }
     validateForm();
   });
@@ -480,18 +763,15 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
   });
 
   // ── Progress UI ──
-  function showProgress() { document.getElementById('progress').classList.remove('hidden'); }
-  function hideProgress() { document.getElementById('progress').classList.add('hidden'); }
-
   function setStep(n, status) {
     for (let i = 1; i <= 5; i++) {
       const el = document.getElementById('step-' + i);
       el.className = 'step';
       const icon = el.querySelector('.step-icon');
-      if (i < n) { el.classList.add('done'); icon.innerHTML = '&#10003;'; }
+      if (i < n) { el.classList.add('done'); icon.innerHTML = '✓'; }
       else if (i === n) {
         el.classList.add(status === 'error' ? 'error' : 'active');
-        icon.innerHTML = status === 'error' ? '&#10007;' : '<span class="spinner">&#9696;</span>';
+        icon.innerHTML = status === 'error' ? '✗' : '<span class="spinner">◌</span>';
       }
       else { icon.textContent = i; }
     }
@@ -500,7 +780,7 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
   function completeStep(n) {
     const el = document.getElementById('step-' + n);
     el.className = 'step done';
-    el.querySelector('.step-icon').innerHTML = '&#10003;';
+    el.querySelector('.step-icon').innerHTML = '✓';
   }
 
   // ── Error display ──
@@ -510,7 +790,15 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     el.style.display = 'block';
     setTimeout(() => { el.style.display = 'none'; }, 8000);
   }
-  function hideError() { document.getElementById('error-msg').style.display = 'none'; }
+  function showProgressError(msg) {
+    const el = document.getElementById('error-msg-progress');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function hideError() {
+    document.getElementById('error-msg').style.display = 'none';
+    document.getElementById('error-msg-progress').style.display = 'none';
+  }
 
   // ── Backend proxy URL (for IPFS upload — pump.fun blocks CORS) ──
   const BACKEND_URL = 'https://bot-lelu-production.up.railway.app';
@@ -544,7 +832,7 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     throw new Error('All RPC endpoints are unreachable. Please try again later.');
   }
 
-  // ── Upload metadata to IPFS via backend proxy (pump.fun blocks browser CORS) ──
+  // ── Upload metadata to IPFS via backend proxy ──
   async function uploadMetadata(name, symbol, description, imageFile, twitter, telegram, website) {
     const formData = new FormData();
     formData.append('file', imageFile);
@@ -629,13 +917,8 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
 
   // ── Sign and send ──
   async function signAndSend(tx, mintKeypair, connection) {
-    // 1. Sign with the mint keypair first (required by PumpFun)
     tx.sign([mintKeypair]);
-
-    // 2. Let Phantom sign with the user's wallet
     const signedTx = await state.provider.signTransaction(tx);
-
-    // 3. Send the fully signed transaction
     const signature = await connection.sendRawTransaction(signedTx.serialize(), {
       skipPreflight: false,
       preflightCommitment: 'confirmed',
@@ -644,7 +927,6 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
 
     console.log('Transaction sent:', signature);
 
-    // 4. Confirm
     const latestBlockhash = await connection.getLatestBlockhash('confirmed');
     const confirmation = await connection.confirmTransaction({
       signature: signature,
@@ -659,7 +941,7 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     return signature;
   }
 
-  // ── Track which step we're on for error reporting ──
+  // ── Track current step ──
   let currentStep = 0;
 
   // ── Main launch flow ──
@@ -668,7 +950,9 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     state.launching = true;
     currentStep = 0;
     hideError();
-    showProgress();
+
+    // Transition to progress view
+    showSection('section-progress');
 
     const launchBtn = document.getElementById('launch-btn');
     launchBtn.disabled = true;
@@ -683,39 +967,37 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     const website = document.getElementById('token-website').value.trim();
 
     try {
-      // Step 0: Check balance using fallback RPC
       const connection = await getConnectionWithFallback();
       const balance = await connection.getBalance(state.publicKey);
       const solBalance = balance / solanaWeb3.LAMPORTS_PER_SOL;
       console.log('Wallet balance:', solBalance, 'SOL');
       if (solBalance < 0.02) {
-        throw new Error('Insufficient SOL. You need at least 0.02 SOL to create a token. Current balance: ' + solBalance.toFixed(4) + ' SOL');
+        throw new Error('Insufficient SOL. You need at least 0.02 SOL. Current: ' + solBalance.toFixed(4) + ' SOL');
       }
 
-      // Generate mint keypair
       state.mintKeypair = solanaWeb3.Keypair.generate();
       state.mintAddress = state.mintKeypair.publicKey.toBase58();
       console.log('Mint address:', state.mintAddress);
 
-      // Step 1: Upload metadata to IPFS
+      // Step 1: IPFS
       currentStep = 1;
       setStep(1, 'active');
       const metadataUri = await uploadMetadata(name, symbol, description, imageFile, twitter, telegram, website);
       console.log('Metadata URI:', metadataUri);
       completeStep(1);
 
-      // Step 2: Build transaction via PumpPortal
+      // Step 2: Build TX
       currentStep = 2;
       setStep(2, 'active');
       const tx = await buildTransaction(metadataUri, name, symbol, state.mintKeypair, state.publicKey);
       console.log('Transaction built successfully');
       completeStep(2);
 
-      // Step 3: Wallet approval (Phantom signs)
+      // Step 3: Wallet approval
       currentStep = 3;
       setStep(3, 'active');
 
-      // Step 4: Send transaction
+      // Step 4: Send
       currentStep = 4;
       state.txSignature = await signAndSend(tx, state.mintKeypair, connection);
       completeStep(3);
@@ -729,20 +1011,28 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
 
       console.log('Token launched! Signature:', state.txSignature);
 
-      // Show success
-      showSuccess();
+      // Transition to success after a brief moment
+      setTimeout(() => showSuccess(), 800);
 
     } catch (err) {
       const msg = err.message || 'Unknown error';
       console.error('Launch error at step ' + currentStep + ':', err);
 
       if (msg.includes('User rejected') || msg.includes('user rejected')) {
-        showError('Transaction rejected in wallet');
+        showProgressError('Transaction rejected in wallet');
         if (currentStep >= 3) setStep(3, 'error');
       } else {
-        showError(msg);
+        showProgressError(msg);
         if (currentStep > 0) setStep(currentStep, 'error');
       }
+
+      // Show a back button on error
+      setTimeout(() => {
+        const errEl = document.getElementById('error-msg-progress');
+        if (errEl.style.display !== 'none') {
+          errEl.innerHTML += '<br/><button onclick="backToForm()" style="margin-top:10px;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);cursor:pointer;font-family:var(--font);font-size:13px;font-weight:600">← Back to Form</button>';
+        }
+      }, 100);
     } finally {
       state.launching = false;
       launchBtn.disabled = false;
@@ -751,14 +1041,24 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     }
   };
 
+  // ── Back to form (from progress on error) ──
+  window.backToForm = function() {
+    hideError();
+    // Reset step icons
+    for (let i = 1; i <= 5; i++) {
+      const el = document.getElementById('step-' + i);
+      el.className = 'step';
+      el.querySelector('.step-icon').textContent = i;
+    }
+    showSection('section-form');
+  };
+
   // ── Success screen ──
   function showSuccess() {
-    document.getElementById('form-card').classList.add('hidden');
-    const card = document.getElementById('success-card');
-    card.classList.remove('hidden');
     document.getElementById('mint-addr').textContent = state.mintAddress;
     document.getElementById('link-pump').href = 'https://pump.fun/coin/' + state.mintAddress;
     document.getElementById('link-scan').href = 'https://solscan.io/token/' + state.mintAddress;
+    showSection('section-success');
   }
 
   window.copyMint = function() {
@@ -771,15 +1071,13 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
   };
 
   window.resetForm = function() {
-    document.getElementById('success-card').classList.add('hidden');
-    document.getElementById('form-card').classList.remove('hidden');
-    hideProgress();
+    hideError();
     document.getElementById('token-name').value = '';
     document.getElementById('token-symbol').value = '';
     document.getElementById('token-description').value = '';
     document.getElementById('token-image').value = '';
     document.getElementById('image-preview').style.display = 'none';
-    document.getElementById('image-upload-text').innerHTML = '<strong>Click to upload</strong> or drag and drop<br/>PNG, JPG, GIF (max 5MB)';
+    document.getElementById('image-upload-text').innerHTML = '<strong>Click to upload</strong> or drag & drop<br/>PNG, JPG, GIF — max 5MB';
     document.getElementById('token-twitter').value = '';
     document.getElementById('token-telegram').value = '';
     document.getElementById('token-website').value = '';
@@ -791,6 +1089,7 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
       el.className = 'step';
       el.querySelector('.step-icon').textContent = i;
     }
+    showSection('section-form');
     validateForm();
   };
 
@@ -822,12 +1121,10 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     initProvider();
   } else {
     console.log('[Init] Phantom not available yet, waiting...');
-    // Phantom fires this event when ready
     window.addEventListener('phantom#initialized', () => {
       console.log('[Init] phantom#initialized event received');
       initProvider();
     }, { once: true });
-    // Fallback: poll for up to 3 seconds
     let attempts = 0;
     const poll = setInterval(() => {
       attempts++;
@@ -836,7 +1133,7 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
         clearInterval(poll);
         initProvider();
       } else if (attempts >= 15) {
-        console.log('[Init] ❌ Phantom NOT found after 3s of polling. Extension may not be installed or enabled for this site.');
+        console.log('[Init] ❌ Phantom NOT found after 3s of polling.');
         clearInterval(poll);
         initProvider();
       }

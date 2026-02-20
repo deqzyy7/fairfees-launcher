@@ -39,6 +39,9 @@
     overflow-x: hidden;
     position: relative;
   }
+  /* Transparent bg when embedded in iframe */
+  body.in-iframe { background: transparent; }
+  body.in-iframe::before { display: none; }
 
   /* Subtle radial glow behind card */
   body::before {
@@ -630,6 +633,13 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     });
   }
 
+  // ── Detect iframe ──
+  const isInIframe = window.self !== window.top;
+  if (isInIframe) {
+    document.body.classList.add('in-iframe');
+    console.log('[Init] Running inside iframe — will open popup for wallet');
+  }
+
   // ── Phantom Wallet ──
   function getProvider() {
     console.log('[Wallet] Checking for Phantom...');
@@ -654,6 +664,20 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
       state.publicKey = null;
       state.connected = false;
       updateWalletUI();
+      return;
+    }
+
+    // If in iframe, Phantom can't inject — open in popup
+    if (isInIframe && !getProvider()) {
+      console.log('[Wallet] In iframe without Phantom — opening popup');
+      const w = 500, h = 750;
+      const left = (screen.width - w) / 2;
+      const top = (screen.height - h) / 2;
+      window.open(
+        window.location.href,
+        'fairfees-launcher',
+        'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top + ',scrollbars=yes,resizable=yes'
+      );
       return;
     }
 

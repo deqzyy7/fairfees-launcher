@@ -372,60 +372,48 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
 
     const provider = getProvider();
     if (!provider) {
-      console.log('[Wallet] ❌ No provider found, opening phantom.app');
       showError('Phantom wallet not detected. Make sure the extension is installed and enabled for this site.');
       return;
     }
 
-    // Try multiple connection methods
-    let connected = false;
+    // Force-disconnect to clear any stale state (fixes some -32603 cases)
+    try { await provider.disconnect(); } catch(e) {}
+    await new Promise(r => setTimeout(r, 300));
 
-    // Method 1: Standard connect()
     try {
-      console.log('[Wallet] Method 1: provider.connect()...');
+      console.log('[Wallet] Calling provider.connect()...');
       const resp = await provider.connect();
-      console.log('[Wallet] ✅ Method 1 worked! Public key:', resp.publicKey.toString());
+      console.log('[Wallet] ✅ Connected! Public key:', resp.publicKey.toString());
       state.provider = provider;
       state.publicKey = resp.publicKey;
       state.connected = true;
-      connected = true;
-    } catch (err1) {
-      console.warn('[Wallet] Method 1 failed:', err1.code, err1.message);
-
-      // Method 2: JSON-RPC request (Phantom docs alternative)
-      try {
-        console.log('[Wallet] Method 2: provider.request({ method: "connect" })...');
-        const resp = await provider.request({ method: 'connect' });
-        console.log('[Wallet] ✅ Method 2 worked! Public key:', resp.publicKey.toString());
-        state.provider = provider;
-        state.publicKey = resp.publicKey;
-        state.connected = true;
-        connected = true;
-      } catch (err2) {
-        console.warn('[Wallet] Method 2 failed:', err2.code, err2.message);
-
-        // Method 3: Check if already connected despite errors
-        if (provider.publicKey) {
-          console.log('[Wallet] ✅ Method 3: Provider already has publicKey:', provider.publicKey.toString());
-          state.provider = provider;
-          state.publicKey = provider.publicKey;
-          state.connected = true;
-          connected = true;
-        } else if (provider.isConnected && provider.publicKey) {
-          console.log('[Wallet] ✅ Method 3b: Provider reports isConnected');
-          state.provider = provider;
-          state.publicKey = provider.publicKey;
-          state.connected = true;
-          connected = true;
-        }
-      }
-    }
-
-    if (connected) {
       updateWalletUI();
-    } else {
-      console.error('[Wallet] ❌ All connection methods failed');
-      showError('Could not connect to Phantom. Try: 1) Open Phantom and unlock it, 2) Refresh this page, 3) Click Connect again.');
+    } catch (err) {
+      console.error('[Wallet] connect() failed:', err.code, err.message, err);
+
+      // Check if already connected despite the error
+      if (provider.publicKey && provider.isConnected) {
+        console.log('[Wallet] Provider is actually connected despite error. Using existing session.');
+        state.provider = provider;
+        state.publicKey = provider.publicKey;
+        state.connected = true;
+        updateWalletUI();
+        return;
+      }
+
+      if (err.code === -32603) {
+        showError(
+          'Phantom internal error (-32603). Fixes: ' +
+          '1) In Phantom, switch to a different Solana account (not imported ETH-only), ' +
+          '2) Toggle Phantom off/on in chrome://extensions, ' +
+          '3) Disable other wallet extensions, ' +
+          '4) Restart Chrome.'
+        );
+      } else if (err.code === 4001) {
+        showError('Connection rejected. Please approve the connection in Phantom.');
+      } else {
+        showError('Connection failed: ' + (err.message || 'Unknown error'));
+      }
     }
   };
 

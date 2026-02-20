@@ -337,12 +337,28 @@
 
   // ── Phantom Wallet ──
   function getProvider() {
-    if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
-    if (window.solana?.isPhantom) return window.solana;
+    console.log('[Wallet] Checking for Phantom...');
+    console.log('[Wallet] window.phantom:', typeof window.phantom, window.phantom ? 'exists' : 'missing');
+    console.log('[Wallet] window.phantom?.solana:', typeof window.phantom?.solana, window.phantom?.solana ? 'exists' : 'missing');
+    console.log('[Wallet] window.phantom?.solana?.isPhantom:', window.phantom?.solana?.isPhantom);
+    console.log('[Wallet] window.solana:', typeof window.solana, window.solana ? 'exists' : 'missing');
+    console.log('[Wallet] window.solana?.isPhantom:', window.solana?.isPhantom);
+
+    if (window.phantom?.solana?.isPhantom) {
+      console.log('[Wallet] ✅ Found Phantom via window.phantom.solana');
+      return window.phantom.solana;
+    }
+    if (window.solana?.isPhantom) {
+      console.log('[Wallet] ✅ Found Phantom via window.solana');
+      return window.solana;
+    }
+    console.log('[Wallet] ❌ Phantom NOT found');
     return null;
   }
 
   window.toggleWallet = async function() {
+    console.log('[Wallet] toggleWallet called, connected:', state.connected);
+
     if (state.connected) {
       try { await state.provider.disconnect(); } catch {}
       state.provider = null;
@@ -354,18 +370,28 @@
 
     const provider = getProvider();
     if (!provider) {
-      window.open('https://phantom.app/', '_blank');
+      console.log('[Wallet] ❌ No provider found, opening phantom.app');
+      showError('Phantom wallet not detected. Make sure the extension is installed and enabled for this site.');
       return;
     }
 
     try {
+      console.log('[Wallet] Calling provider.connect()...');
       const resp = await provider.connect();
+      console.log('[Wallet] ✅ Connected! Public key:', resp.publicKey.toBase58());
       state.provider = provider;
       state.publicKey = resp.publicKey;
       state.connected = true;
       updateWalletUI();
     } catch (err) {
-      showError('Wallet connection rejected');
+      console.error('[Wallet] ❌ Connection error:', err);
+      console.error('[Wallet] Error code:', err.code);
+      console.error('[Wallet] Error message:', err.message);
+      if (err.code === 4001 || (err.message && err.message.includes('rejected'))) {
+        showError('Connection rejected. Please approve the connection in Phantom.');
+      } else {
+        showError('Wallet error: ' + (err.message || JSON.stringify(err)));
+      }
     }
   };
 
@@ -743,30 +769,47 @@
 
   // ── Init ──
   function initProvider() {
+    console.log('[Init] initProvider called');
     const p = getProvider();
     if (p) {
+      console.log('[Init] ✅ Provider found, attaching event listeners');
       p.on('accountChanged', (pk) => {
+        console.log('[Wallet] Account changed:', pk ? pk.toBase58() : 'disconnected');
         if (pk) { state.publicKey = pk; updateWalletUI(); }
         else { state.connected = false; state.publicKey = null; state.provider = null; updateWalletUI(); }
       });
       p.on('disconnect', () => {
+        console.log('[Wallet] Disconnected event');
         state.connected = false; state.publicKey = null; state.provider = null; updateWalletUI();
       });
+    } else {
+      console.log('[Init] ❌ No provider found at init time');
     }
     updateWalletUI();
   }
 
   // Phantom injects after page load — wait for it
+  console.log('[Init] Page loaded, checking for Phantom...');
   if (getProvider()) {
+    console.log('[Init] Phantom available immediately');
     initProvider();
   } else {
+    console.log('[Init] Phantom not available yet, waiting...');
     // Phantom fires this event when ready
-    window.addEventListener('phantom#initialized', initProvider, { once: true });
+    window.addEventListener('phantom#initialized', () => {
+      console.log('[Init] phantom#initialized event received');
+      initProvider();
+    }, { once: true });
     // Fallback: poll for up to 3 seconds
     let attempts = 0;
     const poll = setInterval(() => {
       attempts++;
-      if (getProvider() || attempts >= 15) {
+      if (getProvider()) {
+        console.log('[Init] Phantom found after ' + attempts + ' poll attempts (' + (attempts * 200) + 'ms)');
+        clearInterval(poll);
+        initProvider();
+      } else if (attempts >= 15) {
+        console.log('[Init] ❌ Phantom NOT found after 3s of polling. Extension may not be installed or enabled for this site.');
         clearInterval(poll);
         initProvider();
       }

@@ -512,6 +512,9 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
   }
   function hideError() { document.getElementById('error-msg').style.display = 'none'; }
 
+  // ── Backend proxy URL (for IPFS upload — pump.fun blocks CORS) ──
+  const BACKEND_URL = 'https://bot-lelu-production.up.railway.app';
+
   // ── RPC endpoint (public, CORS-friendly) ──
   const RPC_ENDPOINTS = [
     'https://solana-rpc.publicnode.com',
@@ -541,7 +544,7 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
     throw new Error('All RPC endpoints are unreachable. Please try again later.');
   }
 
-  // ── Upload metadata to IPFS via pump.fun ──
+  // ── Upload metadata to IPFS via backend proxy (pump.fun blocks browser CORS) ──
   async function uploadMetadata(name, symbol, description, imageFile, twitter, telegram, website) {
     const formData = new FormData();
     formData.append('file', imageFile);
@@ -555,19 +558,21 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
 
     let response;
     try {
-      response = await fetch('https://pump.fun/api/ipfs', {
+      console.log('[IPFS] Uploading via proxy:', BACKEND_URL + '/api/ipfs-proxy');
+      response = await fetch(BACKEND_URL + '/api/ipfs-proxy', {
         method: 'POST',
         body: formData,
       });
     } catch (err) {
-      throw new Error('IPFS upload failed (network error). pump.fun may be blocking cross-origin requests. Error: ' + err.message);
+      throw new Error('IPFS upload failed (network error): ' + err.message);
     }
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error('IPFS upload failed (HTTP ' + response.status + '). ' + text);
+      throw new Error('IPFS upload failed (HTTP ' + response.status + '): ' + text);
     }
     const data = await response.json();
+    console.log('[IPFS] Response:', data);
     if (!data.metadataUri) {
       throw new Error('IPFS upload returned no metadataUri. Response: ' + JSON.stringify(data));
     }

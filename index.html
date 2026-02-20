@@ -389,7 +389,10 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
       console.error('[Wallet] ❌ Connection error:', err);
       console.error('[Wallet] Error code:', err.code);
       console.error('[Wallet] Error message:', err.message);
-      if (err.code === 4001 || (err.message && err.message.includes('rejected'))) {
+
+      if (err.code === -32603) {
+        showError('Phantom internal error (-32603). Open Phantom, unlock your wallet, then retry.');
+      } else if (err.code === 4001 || (err.message && err.message.includes('rejected'))) {
         showError('Connection rejected. Please approve the connection in Phantom.');
       } else {
         showError('Wallet error: ' + (err.message || JSON.stringify(err)));

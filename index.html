@@ -464,7 +464,36 @@
   }
   function hideError() { document.getElementById('error-msg').style.display = 'none'; }
 
-  // ── Upload metadata to IPFS ──
+  // ── RPC endpoint (public, CORS-friendly) ──
+  const RPC_ENDPOINTS = [
+    'https://solana-rpc.publicnode.com',
+    'https://api.mainnet-beta.solana.com',
+  ];
+  let currentRpcIndex = 0;
+
+  function getConnection() {
+    return new solanaWeb3.Connection(RPC_ENDPOINTS[currentRpcIndex], {
+      commitment: 'confirmed',
+      confirmTransactionInitialTimeout: 60000,
+    });
+  }
+
+  async function getConnectionWithFallback() {
+    for (let i = 0; i < RPC_ENDPOINTS.length; i++) {
+      const idx = (currentRpcIndex + i) % RPC_ENDPOINTS.length;
+      const conn = new solanaWeb3.Connection(RPC_ENDPOINTS[idx], { commitment: 'confirmed', confirmTransactionInitialTimeout: 60000 });
+      try {
+        await conn.getLatestBlockhash();
+        currentRpcIndex = idx;
+        return conn;
+      } catch (e) {
+        console.warn('RPC ' + RPC_ENDPOINTS[idx] + ' unreachable, trying next...');
+      }
+    }
+    throw new Error('All RPC endpoints are unreachable. Please try again later.');
+  }
+
+  // ── Upload metadata to IPFS via pump.fun ──
   async function uploadMetadata(name, symbol, description, imageFile, twitter, telegram, website) {
     const formData = new FormData();
     formData.append('file', imageFile);
@@ -476,77 +505,115 @@
     formData.append('website', website || '');
     formData.append('showName', 'true');
 
-    const response = await fetch('https://pump.fun/api/ipfs', {
-      method: 'POST',
-      body: formData,
-    });
+    let response;
+    try {
+      response = await fetch('https://pump.fun/api/ipfs', {
+        method: 'POST',
+        body: formData,
+      });
+    } catch (err) {
+      throw new Error('IPFS upload failed (network error). pump.fun may be blocking cross-origin requests. Error: ' + err.message);
+    }
 
-    if (!response.ok) throw new Error('Metadata upload failed (HTTP ' + response.status + ')');
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error('IPFS upload failed (HTTP ' + response.status + '). ' + text);
+    }
     const data = await response.json();
+    if (!data.metadataUri) {
+      throw new Error('IPFS upload returned no metadataUri. Response: ' + JSON.stringify(data));
+    }
     return data.metadataUri;
   }
 
-  // ── Build transaction via PumpPortal ──
+  // ── Build transaction via PumpPortal Local API ──
   async function buildTransaction(metadataUri, name, symbol, mintKeypair, userPubkey) {
-    const response = await fetch('https://pumpportal.fun/api/trade-local', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicKey: userPubkey.toBase58(),
-        action: 'create',
-        tokenMetadata: { name, symbol, uri: metadataUri },
-        mint: bs58Encode(mintKeypair.secretKey),
-        denominatedInSol: 'true',
-        amount: 0,
-        slippage: 10,
-        priorityFee: 0.0005,
-        pool: 'pump',
-      }),
-    });
+    const body = {
+      publicKey: userPubkey.toBase58(),
+      action: 'create',
+      tokenMetadata: {
+        name: name,
+        symbol: symbol,
+        uri: metadataUri,
+      },
+      mint: mintKeypair.publicKey.toBase58(),
+      denominatedInSol: 'true',
+      amount: 0,
+      slippage: 10,
+      priorityFee: 0.0005,
+      pool: 'pump',
+    };
 
-    if (response.status === 400) {
-      const text = await response.text();
-      throw new Error('Transaction build failed: ' + text);
+    console.log('PumpPortal request body:', JSON.stringify(body, null, 2));
+
+    let response;
+    try {
+      response = await fetch('https://pumpportal.fun/api/trade-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      throw new Error('PumpPortal API unreachable: ' + err.message);
     }
-    if (!response.ok) throw new Error('Transaction build failed (HTTP ' + response.status + ')');
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error('Transaction build failed (HTTP ' + response.status + '): ' + text);
+    }
 
     const txData = await response.arrayBuffer();
-    return solanaWeb3.VersionedTransaction.deserialize(new Uint8Array(txData));
-  }
+    if (txData.byteLength === 0) {
+      throw new Error('PumpPortal returned empty transaction data');
+    }
 
-  // ── RPC endpoint (public, CORS-friendly) ──
-  const RPC_ENDPOINTS = [
-    'https://solana-rpc.publicnode.com',
-    'https://api.mainnet-beta.solana.com',
-  ];
-
-  function getConnection() {
-    return new solanaWeb3.Connection(RPC_ENDPOINTS[0], {
-      commitment: 'confirmed',
-      confirmTransactionInitialTimeout: 60000,
-    });
+    try {
+      return solanaWeb3.VersionedTransaction.deserialize(new Uint8Array(txData));
+    } catch (err) {
+      throw new Error('Failed to deserialize transaction: ' + err.message);
+    }
   }
 
   // ── Sign and send ──
-  async function signAndSend(tx, mintKeypair) {
-    const connection = getConnection();
-
+  async function signAndSend(tx, mintKeypair, connection) {
+    // 1. Sign with the mint keypair first (required by PumpFun)
     tx.sign([mintKeypair]);
+
+    // 2. Let Phantom sign with the user's wallet
     const signedTx = await state.provider.signTransaction(tx);
 
+    // 3. Send the fully signed transaction
     const signature = await connection.sendRawTransaction(signedTx.serialize(), {
       skipPreflight: false,
       preflightCommitment: 'confirmed',
+      maxRetries: 3,
     });
 
-    await connection.confirmTransaction(signature, 'confirmed');
+    console.log('Transaction sent:', signature);
+
+    // 4. Confirm
+    const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+    const confirmation = await connection.confirmTransaction({
+      signature: signature,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    }, 'confirmed');
+
+    if (confirmation.value.err) {
+      throw new Error('Transaction failed on-chain: ' + JSON.stringify(confirmation.value.err));
+    }
+
     return signature;
   }
+
+  // ── Track which step we're on for error reporting ──
+  let currentStep = 0;
 
   // ── Main launch flow ──
   window.launchToken = async function() {
     if (state.launching || !state.connected) return;
     state.launching = true;
+    currentStep = 0;
     hideError();
     showProgress();
 
@@ -563,52 +630,66 @@
     const website = document.getElementById('token-website').value.trim();
 
     try {
-      // Check balance
-      const connection = getConnection();
+      // Step 0: Check balance using fallback RPC
+      const connection = await getConnectionWithFallback();
       const balance = await connection.getBalance(state.publicKey);
-      if (balance < 0.02 * solanaWeb3.LAMPORTS_PER_SOL) {
-        throw new Error('Insufficient SOL. You need at least 0.02 SOL. Current: ' + (balance / solanaWeb3.LAMPORTS_PER_SOL).toFixed(4));
+      const solBalance = balance / solanaWeb3.LAMPORTS_PER_SOL;
+      console.log('Wallet balance:', solBalance, 'SOL');
+      if (solBalance < 0.02) {
+        throw new Error('Insufficient SOL. You need at least 0.02 SOL to create a token. Current balance: ' + solBalance.toFixed(4) + ' SOL');
       }
 
       // Generate mint keypair
       state.mintKeypair = solanaWeb3.Keypair.generate();
       state.mintAddress = state.mintKeypair.publicKey.toBase58();
+      console.log('Mint address:', state.mintAddress);
 
-      // Step 1: Upload metadata
+      // Step 1: Upload metadata to IPFS
+      currentStep = 1;
       setStep(1, 'active');
       const metadataUri = await uploadMetadata(name, symbol, description, imageFile, twitter, telegram, website);
+      console.log('Metadata URI:', metadataUri);
       completeStep(1);
 
-      // Step 2: Build transaction
+      // Step 2: Build transaction via PumpPortal
+      currentStep = 2;
       setStep(2, 'active');
       const tx = await buildTransaction(metadataUri, name, symbol, state.mintKeypair, state.publicKey);
+      console.log('Transaction built successfully');
       completeStep(2);
 
-      // Step 3: Wallet approval
+      // Step 3: Wallet approval (Phantom signs)
+      currentStep = 3;
       setStep(3, 'active');
 
-      // Step 4: Send
-      setStep(4, 'active');
-      state.txSignature = await signAndSend(tx, state.mintKeypair);
+      // Step 4: Send transaction
+      currentStep = 4;
+      state.txSignature = await signAndSend(tx, state.mintKeypair, connection);
       completeStep(3);
+      setStep(4, 'active');
       completeStep(4);
 
       // Step 5: Confirmed
+      currentStep = 5;
       setStep(5, 'active');
       completeStep(5);
+
+      console.log('Token launched! Signature:', state.txSignature);
 
       // Show success
       showSuccess();
 
     } catch (err) {
       const msg = err.message || 'Unknown error';
-      if (msg.includes('User rejected')) {
+      console.error('Launch error at step ' + currentStep + ':', err);
+
+      if (msg.includes('User rejected') || msg.includes('user rejected')) {
         showError('Transaction rejected in wallet');
-        setStep(3, 'error');
+        if (currentStep >= 3) setStep(3, 'error');
       } else {
         showError(msg);
+        if (currentStep > 0) setStep(currentStep, 'error');
       }
-      console.error('Launch error:', err);
     } finally {
       state.launching = false;
       launchBtn.disabled = false;

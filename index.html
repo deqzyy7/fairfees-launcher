@@ -648,18 +648,35 @@
   };
 
   // ── Init ──
-  updateWalletUI();
+  function initProvider() {
+    const p = getProvider();
+    if (p) {
+      p.on('accountChanged', (pk) => {
+        if (pk) { state.publicKey = pk; updateWalletUI(); }
+        else { state.connected = false; state.publicKey = null; state.provider = null; updateWalletUI(); }
+      });
+      p.on('disconnect', () => {
+        state.connected = false; state.publicKey = null; state.provider = null; updateWalletUI();
+      });
+    }
+    updateWalletUI();
+  }
 
-  // Listen for wallet changes
-  const provider = getProvider();
-  if (provider) {
-    provider.on('accountChanged', (pk) => {
-      if (pk) { state.publicKey = pk; updateWalletUI(); }
-      else { state.connected = false; state.publicKey = null; state.provider = null; updateWalletUI(); }
-    });
-    provider.on('disconnect', () => {
-      state.connected = false; state.publicKey = null; state.provider = null; updateWalletUI();
-    });
+  // Phantom injects after page load — wait for it
+  if (getProvider()) {
+    initProvider();
+  } else {
+    // Phantom fires this event when ready
+    window.addEventListener('phantom#initialized', initProvider, { once: true });
+    // Fallback: poll for up to 3 seconds
+    let attempts = 0;
+    const poll = setInterval(() => {
+      attempts++;
+      if (getProvider() || attempts >= 15) {
+        clearInterval(poll);
+        initProvider();
+      }
+    }, 200);
   }
 })();
 </script>

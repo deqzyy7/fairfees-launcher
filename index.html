@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FairFees — Launch Your Token</title>
-<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.5/lib/index.iife.min.js"></script>
 <style>
   :root {
     --bg-primary: #0d1117;
@@ -377,29 +377,55 @@ console.log('solanaWeb3 available:', typeof solanaWeb3 !== 'undefined');
       return;
     }
 
-    try {
-      // Disconnect first to clear any stale state
-      try { await provider.disconnect(); } catch (_) {}
+    // Try multiple connection methods
+    let connected = false;
 
-      console.log('[Wallet] Calling provider.connect()...');
+    // Method 1: Standard connect()
+    try {
+      console.log('[Wallet] Method 1: provider.connect()...');
       const resp = await provider.connect();
-      console.log('[Wallet] ✅ Connected! Public key:', resp.publicKey.toBase58());
+      console.log('[Wallet] ✅ Method 1 worked! Public key:', resp.publicKey.toString());
       state.provider = provider;
       state.publicKey = resp.publicKey;
       state.connected = true;
-      updateWalletUI();
-    } catch (err) {
-      console.error('[Wallet] ❌ Connection error:', err);
-      console.error('[Wallet] Error code:', err.code);
-      console.error('[Wallet] Error message:', err.message);
+      connected = true;
+    } catch (err1) {
+      console.warn('[Wallet] Method 1 failed:', err1.code, err1.message);
 
-      if (err.code === -32603) {
-        showError('Phantom error: Open Phantom extension, unlock it, then click Connect again. If it persists, go to Phantom Settings → Trusted Apps → remove this site, then retry.');
-      } else if (err.code === 4001 || (err.message && err.message.includes('rejected'))) {
-        showError('Connection rejected. Please approve the connection in Phantom.');
-      } else {
-        showError('Wallet error: ' + (err.message || JSON.stringify(err)));
+      // Method 2: JSON-RPC request (Phantom docs alternative)
+      try {
+        console.log('[Wallet] Method 2: provider.request({ method: "connect" })...');
+        const resp = await provider.request({ method: 'connect' });
+        console.log('[Wallet] ✅ Method 2 worked! Public key:', resp.publicKey.toString());
+        state.provider = provider;
+        state.publicKey = resp.publicKey;
+        state.connected = true;
+        connected = true;
+      } catch (err2) {
+        console.warn('[Wallet] Method 2 failed:', err2.code, err2.message);
+
+        // Method 3: Check if already connected despite errors
+        if (provider.publicKey) {
+          console.log('[Wallet] ✅ Method 3: Provider already has publicKey:', provider.publicKey.toString());
+          state.provider = provider;
+          state.publicKey = provider.publicKey;
+          state.connected = true;
+          connected = true;
+        } else if (provider.isConnected && provider.publicKey) {
+          console.log('[Wallet] ✅ Method 3b: Provider reports isConnected');
+          state.provider = provider;
+          state.publicKey = provider.publicKey;
+          state.connected = true;
+          connected = true;
+        }
       }
+    }
+
+    if (connected) {
+      updateWalletUI();
+    } else {
+      console.error('[Wallet] ❌ All connection methods failed');
+      showError('Could not connect to Phantom. Try: 1) Open Phantom and unlock it, 2) Refresh this page, 3) Click Connect again.');
     }
   };
 
